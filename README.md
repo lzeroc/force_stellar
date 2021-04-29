@@ -1,1 +1,4 @@
-# 梦想总是要有的
+# 暴力碰撞stellar(可能是没用的东西
+
+## run
+```npm run start```

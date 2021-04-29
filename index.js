@@ -1,8 +1,15 @@
 var StellarSdk = require('stellar-sdk');
 const schedule = require('node-schedule');
-const server = new StellarSdk.Server('https://h.fchain.io');
+const low = require('lowdb');
+const FileSync = require('lowdb/adapters/FileSync');
+
+const server = new StellarSdk.Server('https://horizon.stellar.org');
 StellarSdk.Networks.PUBLIC;
 
+const adapter = new FileSync('db.json');
+const db = low(adapter);
+
+db.defaults({ secrets: [] }).write();
 
 function getRndLetterNumber(randomFlag, min, max) {
     var str = "S";
@@ -35,20 +42,26 @@ async function main() {
         try {
             let keypair = StellarSdk.Keypair.fromSecret(secret);
             let address = keypair.publicKey();
-            let ret = await server.loadAccount(address);
             let amount;
-            ret.balances.forEach(item => {
-                if (item.asset_type === 'native') {
-                    amount = item.balance;
-                }
-            });
-            let pool = await require('./pool');
-            let data = {
-                address: address,
-                secret: secret,
-                amount: amount,
+            try {
+                let ret = await server.loadAccount(address);
+                ret.balances.forEach(item => {
+                    if (item.asset_type === 'native') {
+                        amount = item.balance;
+                    }
+                });
+                db.get('secrets').push({
+                    address: address,
+                    secret: secret,
+                    amount: amount,
+                }).write();
+            } catch (e) {
+                db.get('secrets').push({
+                    address: address,
+                    secret: secret,
+                    amount: 0,
+                }).write();
             }
-            await pool.query('insert into account set ?', data);
         } catch (e) {
             continue;
         }
